@@ -17,8 +17,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Users, Megaphone, Wallet } from "lucide-react";
-import { impersonate } from "./actions";
+import { impersonate, confirmEmail } from "./actions";
 import { formatEUR } from "@/lib/forfaits";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export default async function AdminPage({
   searchParams,
@@ -53,6 +54,15 @@ export default async function AdminPage({
   }
 
   const activeSubs = (subscriptions ?? []).filter((s) => s.status === "active").length;
+
+  const admin = createAdminClient();
+  const confirmedByUser = new Map<string, boolean>();
+  await Promise.all(
+    (clients ?? []).map(async (client) => {
+      const { data } = await admin.auth.admin.getUserById(client.id);
+      confirmedByUser.set(client.id, Boolean(data.user?.email_confirmed_at));
+    }),
+  );
 
   return (
     <div className="flex flex-col gap-8">
@@ -111,6 +121,7 @@ export default async function AdminPage({
             <TableRow>
               <TableHead>Client</TableHead>
               <TableHead>Secteur</TableHead>
+              <TableHead>Email</TableHead>
               <TableHead>Forfait / Paiement</TableHead>
               <TableHead>Leads</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -131,6 +142,20 @@ export default async function AdminPage({
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {client.sector ?? "—"}
+                  </TableCell>
+                  <TableCell>
+                    {confirmedByUser.get(client.id) ? (
+                      <Badge variant="secondary">Confirmé</Badge>
+                    ) : (
+                      <div className="flex flex-col items-start gap-1">
+                        <Badge variant="destructive">Non confirmé</Badge>
+                        <form action={confirmEmail.bind(null, client.id)}>
+                          <Button type="submit" size="sm" variant="outline">
+                            Valider l&apos;email
+                          </Button>
+                        </form>
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell>
                     {sub ? (
@@ -164,7 +189,7 @@ export default async function AdminPage({
             })}
             {(clients ?? []).length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-sm text-muted-foreground">
+                <TableCell colSpan={6} className="text-center text-sm text-muted-foreground">
                   Aucun client inscrit pour le moment.
                 </TableCell>
               </TableRow>

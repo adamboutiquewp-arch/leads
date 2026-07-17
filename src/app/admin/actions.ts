@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -77,6 +78,22 @@ export async function impersonate(targetUserId: string) {
   });
 
   redirect("/dashboard");
+}
+
+export async function confirmEmail(targetUserId: string) {
+  await requireAdmin();
+
+  const admin = createAdminClient();
+  const { error } = await admin.auth.admin.updateUserById(targetUserId, {
+    email_confirm: true,
+  });
+
+  if (error) {
+    redirect(`/admin?error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath("/admin");
+  revalidatePath(`/admin/clients/${targetUserId}`);
 }
 
 export async function returnToAdmin() {

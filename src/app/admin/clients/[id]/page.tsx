@@ -21,8 +21,9 @@ import {
 import { ArrowLeft } from "lucide-react";
 import { formatEUR } from "@/lib/forfaits";
 import { SubscriptionForm } from "@/components/subscription-form";
-import { impersonate } from "../../actions";
+import { impersonate, confirmEmail } from "../../actions";
 import { updateSubscription } from "./actions";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export default async function ClientDetailPage({
   params,
@@ -56,6 +57,10 @@ export default async function ClientDetailPage({
 
   const currentSub = subscriptions?.[0];
 
+  const admin = createAdminClient();
+  const { data: authUser } = await admin.auth.admin.getUserById(id);
+  const emailConfirmed = Boolean(authUser.user?.email_confirmed_at);
+
   return (
     <div className="flex flex-col gap-8">
       <div>
@@ -74,6 +79,20 @@ export default async function ClientDetailPage({
             <p className="mt-1 text-xs text-muted-foreground">
               Inscrit le {new Date(client.created_at).toLocaleDateString("fr-FR")}
             </p>
+            <div className="mt-2 flex items-center gap-2">
+              {emailConfirmed ? (
+                <Badge variant="secondary">Email confirmé</Badge>
+              ) : (
+                <>
+                  <Badge variant="destructive">Email non confirmé</Badge>
+                  <form action={confirmEmail.bind(null, client.id)}>
+                    <Button type="submit" size="sm" variant="outline">
+                      Valider l&apos;email
+                    </Button>
+                  </form>
+                </>
+              )}
+            </div>
           </div>
           <form action={impersonate.bind(null, client.id)}>
             <Button type="submit" variant="outline">
