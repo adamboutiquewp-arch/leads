@@ -30,7 +30,7 @@ export default async function DashboardPage() {
         .limit(50),
       supabase
         .from("subscriptions")
-        .select("status, budget_monthly_cents, forfaits(name, budget_cap_cents)")
+        .select("status, budget_monthly_cents, is_unlimited, forfaits(name, budget_cap_cents)")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -86,12 +86,16 @@ export default async function DashboardPage() {
             <Wallet className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{forfait?.name ?? "Aucun"}</div>
+            <div className="text-2xl font-bold">
+              {subscription?.is_unlimited ? "Illimité" : (forfait?.name ?? "Aucun")}
+            </div>
             <p className="text-xs text-muted-foreground">
               {subscription
-                ? `Budget ${formatEUR(subscription.budget_monthly_cents)}/mois · plafond ${formatEUR(
-                    forfait?.budget_cap_cents ?? 0,
-                  )}`
+                ? subscription.is_unlimited
+                  ? `Budget illimité (${formatEUR(subscription.budget_monthly_cents)}/mois)`
+                  : `Budget ${formatEUR(subscription.budget_monthly_cents)}/mois · plafond ${formatEUR(
+                      forfait?.budget_cap_cents ?? 0,
+                    )}`
                 : "Aucun abonnement actif"}
             </p>
             {subscription && (

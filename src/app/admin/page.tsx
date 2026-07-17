@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import {
   Card,
@@ -30,12 +31,12 @@ export default async function AdminPage({
   const [{ data: clients }, { data: subscriptions }, { data: leads }] = await Promise.all([
     supabase
       .from("profiles")
-      .select("id, full_name, company_name, sector, created_at")
+      .select("id, full_name, email, company_name, sector, created_at")
       .eq("role", "client")
       .order("created_at", { ascending: false }),
     supabase
       .from("subscriptions")
-      .select("user_id, status, budget_monthly_cents, forfaits(name), created_at")
+      .select("user_id, status, budget_monthly_cents, is_unlimited, forfaits(name), created_at")
       .order("created_at", { ascending: false }),
     supabase.from("leads").select("user_id"),
   ]);
@@ -110,7 +111,7 @@ export default async function AdminPage({
             <TableRow>
               <TableHead>Client</TableHead>
               <TableHead>Secteur</TableHead>
-              <TableHead>Forfait</TableHead>
+              <TableHead>Forfait / Paiement</TableHead>
               <TableHead>Leads</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -122,7 +123,10 @@ export default async function AdminPage({
               return (
                 <TableRow key={client.id}>
                   <TableCell>
-                    <div className="font-medium">{client.full_name ?? "—"}</div>
+                    <Link href={`/admin/clients/${client.id}`} className="font-medium hover:underline">
+                      {client.full_name ?? "—"}
+                    </Link>
+                    <div className="text-xs text-muted-foreground">{client.email}</div>
                     <div className="text-xs text-muted-foreground">{client.company_name}</div>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
@@ -132,23 +136,28 @@ export default async function AdminPage({
                     {sub ? (
                       <div className="space-y-1">
                         <Badge variant={sub.status === "active" ? "default" : "secondary"}>
-                          {forfait?.name ?? sub.status}
+                          {sub.is_unlimited ? "Illimité" : (forfait?.name ?? sub.status)}
                         </Badge>
                         <div className="text-xs text-muted-foreground">
-                          {formatEUR(sub.budget_monthly_cents)}/mois
+                          {sub.status} · {formatEUR(sub.budget_monthly_cents)}/mois
                         </div>
                       </div>
                     ) : (
-                      <span className="text-xs text-muted-foreground">Aucun</span>
+                      <span className="text-xs text-muted-foreground">Aucun abonnement</span>
                     )}
                   </TableCell>
                   <TableCell>{leadCountByUser.get(client.id) ?? 0}</TableCell>
                   <TableCell className="text-right">
-                    <form action={impersonate.bind(null, client.id)}>
-                      <Button type="submit" size="sm" variant="outline">
-                        Se connecter en tant que
+                    <div className="flex justify-end gap-2">
+                      <Button render={<Link href={`/admin/clients/${client.id}`} />} size="sm" variant="ghost">
+                        Voir
                       </Button>
-                    </form>
+                      <form action={impersonate.bind(null, client.id)}>
+                        <Button type="submit" size="sm" variant="outline">
+                          Se connecter en tant que
+                        </Button>
+                      </form>
+                    </div>
                   </TableCell>
                 </TableRow>
               );
