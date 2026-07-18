@@ -25,9 +25,9 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-const MAX_PROMPT_LENGTH = 400; // long/complex prompts have caused outright generation failures
+const MAX_PROMPT_LENGTH = 400; // defensive cap — very long prompts are one known failure mode
 
-async function generateSingleClip(prompt: string, format: CreativeFormat, seconds: number) {
+async function generateSingleClipOnce(prompt: string, format: CreativeFormat, seconds: number) {
   const result = await generateVideo({
     model: "bytedance/seedance-2.0",
     prompt: prompt.slice(0, MAX_PROMPT_LENGTH),
@@ -46,6 +46,28 @@ async function generateSingleClip(prompt: string, format: CreativeFormat, second
   });
 
   return Buffer.from(result.videos[0].uint8Array);
+}
+
+function isGenericProviderFailure(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes('"status":"failed"');
+}
+
+/**
+ * The Seedance backend occasionally fails a job with no reason given
+ * (`{"status":"failed"}`), even for short, simple, unremarkable prompts —
+ * a transient provider-side issue, not something prompt tweaking fixes.
+ * One automatic retry (spaced out to respect the 1/min quota) clears most
+ * of these.
+ */
+async function generateSingleClip(prompt: string, format: CreativeFormat, seconds: number) {
+  try {
+    return await generateSingleClipOnce(prompt, format, seconds);
+  } catch (error) {
+    if (!isGenericProviderFailure(error)) throw error;
+    await sleep(CLIP_GAP_MS);
+    return generateSingleClipOnce(prompt, format, seconds);
+  }
 }
 
 /**

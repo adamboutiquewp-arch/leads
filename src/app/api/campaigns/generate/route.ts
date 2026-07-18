@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
       const message = rawMessage.includes("quota of 1 request per minute")
         ? "Une seule vidéo peut être générée par minute avec le forfait actuel. Réessayez dans une minute."
         : rawMessage.includes('"status":"failed"')
-          ? "Le modèle vidéo a échoué sans raison précise (souvent lié à une description trop longue ou complexe). Réessayez avec une description plus simple et courte."
+          ? "Le modèle vidéo a échoué deux fois de suite sans raison précise (panne temporaire côté fournisseur). Réessayez dans quelques minutes."
           : rawMessage;
 
       await admin
