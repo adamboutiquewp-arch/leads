@@ -5,12 +5,13 @@ import { getImpersonationState } from "@/lib/impersonation";
 import { returnToAdmin } from "@/app/admin/actions";
 import { logout } from "@/app/(auth)/actions";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, Megaphone, Users2, LogOut, UserCog } from "lucide-react";
+import { LayoutDashboard, Megaphone, Users2, LogOut, UserCog, Settings } from "lucide-react";
 
 const NAV = [
   { href: "/dashboard", label: "Vue d'ensemble", icon: LayoutDashboard },
   { href: "/dashboard/campaigns", label: "Campagnes", icon: Megaphone },
   { href: "/dashboard/leads", label: "Leads", icon: Users2 },
+  { href: "/dashboard/settings", label: "Paramètres", icon: Settings },
 ];
 
 export default async function DashboardLayout({

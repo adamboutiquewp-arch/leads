@@ -27,9 +27,15 @@ import { ArrowLeft, Loader2, Sparkles } from "lucide-react";
 export function NewCampaignForm({
   sector,
   companyName,
+  websiteUrl,
+  serviceArea,
+  responseTimeMinutes,
 }: {
   sector: string | null;
   companyName: string | null;
+  websiteUrl: string | null;
+  serviceArea: string | null;
+  responseTimeMinutes: number | null;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -55,7 +61,15 @@ export function NewCampaignForm({
       const res = await fetch("/api/campaigns/generate-script", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ videoPrompt, sector, companyName, durationSeconds: Number(duration) }),
+        body: JSON.stringify({
+          videoPrompt,
+          sector,
+          companyName,
+          websiteUrl,
+          serviceArea,
+          responseTimeMinutes,
+          durationSeconds: Number(duration),
+        }),
       });
       const data = await res.json();
 
