@@ -37,10 +37,13 @@ Entreprise : ${companyName || "non précisée"}
 
 Contraintes :
 - En français, 2 à 3 phrases courtes maximum (250 caractères environ), pas de liste, pas de titres.
-- Un seul plan continu et simple : un sujet, une action, un mouvement de caméra. Pas de montage
-  avant/après, pas de changements de scène ni de coupes multiples — les modèles de génération
-  vidéo ne gèrent pas bien les scénarios à plusieurs plans dans un seul clip.
-- Décris le sujet, le mouvement de caméra, l'ambiance/lumière, le style visuel, de façon concise.
+- Sauf si l'idée du client l'exclut clairement, mets en scène un employé ou artisan de
+  l'entreprise qui parle directement à la caméra (face caméra, expression avenante, en train de
+  présenter ou vanter le service) — ce style a le mieux fonctionné jusqu'ici pour ce client.
+- Un seul plan continu et simple : un sujet, une action, un mouvement de caméra minimal. Pas de
+  montage avant/après, pas de changements de scène ni de coupes multiples — les modèles de
+  génération vidéo ne gèrent pas bien les scénarios à plusieurs plans dans un seul clip.
+- Décris le sujet, l'ambiance/lumière, le style visuel, de façon concise.
 - Adapté à une publicité professionnelle et vendeuse pour ce secteur.
 - Réponds uniquement avec la description, rien d'autre.`,
       maxRetries: 1,
