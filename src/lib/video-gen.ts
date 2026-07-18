@@ -31,6 +31,13 @@ async function generateSingleClip(prompt: string, format: CreativeFormat, second
     prompt,
     aspectRatio: ASPECT_RATIO[format],
     duration: seconds,
+    // Seedance 2.0 only accepts the quality-tier strings '720p'/'1080p' for
+    // resolution, not pixel dimensions like '1080x1080' (that format errors
+    // out) — without this it silently defaulted to 960x960, below Meta/Google's
+    // recommended minimum for ad creatives.
+    // The AI SDK types `resolution` as pixel dimensions (`${number}x${number}`),
+    // but this model's actual API takes the quality-tier strings '720p'/'1080p'.
+    resolution: "1080p" as `${number}x${number}`,
     // Retrying on failure would burn the 1-request/minute quota within
     // seconds, so we fail fast instead and let the caller surface a clear error.
     maxRetries: 0,

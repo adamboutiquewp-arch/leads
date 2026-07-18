@@ -47,6 +47,38 @@ export function NewCampaignForm({
   const [voiceoverText, setVoiceoverText] = useState("");
   const [generatingScript, setGeneratingScript] = useState(false);
   const [scriptError, setScriptError] = useState<string | null>(null);
+  const [generatingVisual, setGeneratingVisual] = useState(false);
+  const [visualError, setVisualError] = useState<string | null>(null);
+
+  async function handleGenerateVisualPrompt() {
+    if (!videoPrompt.trim()) {
+      setVisualError("Tapez d'abord une idée en quelques mots (ex: rénovation de sols).");
+      return;
+    }
+
+    setGeneratingVisual(true);
+    setVisualError(null);
+
+    try {
+      const res = await fetch("/api/campaigns/generate-visual-prompt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idea: videoPrompt, sector, companyName }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setVisualError(data.error ?? "Impossible de générer la description.");
+        return;
+      }
+
+      setVideoPrompt(data.text);
+    } catch {
+      setVisualError("Impossible de contacter le serveur.");
+    } finally {
+      setGeneratingVisual(false);
+    }
+  }
 
   async function handleGenerateScript() {
     if (!videoPrompt.trim()) {
@@ -135,7 +167,8 @@ export function NewCampaignForm({
         <CardHeader>
           <CardTitle>Nouvelle campagne</CardTitle>
           <CardDescription>
-            Décrivez votre visuel, l&apos;IA génère une vidéo publicitaire prête à l&apos;emploi.
+            Entrez vos idées, l&apos;IA rédige la description du visuel et le texte de la voix
+            off, puis génère une vidéo publicitaire prête à l&apos;emploi.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -198,7 +231,25 @@ export function NewCampaignForm({
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="videoPrompt">Description du visuel</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="videoPrompt">Description du visuel</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  disabled={generatingVisual || loading}
+                  onClick={handleGenerateVisualPrompt}
+                >
+                  {generatingVisual ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-3.5 w-3.5" />
+                  )}
+                  Générer avec l&apos;IA
+                </Button>
+              </div>
+              {visualError && <p className="text-xs text-destructive">{visualError}</p>}
               <Textarea
                 id="videoPrompt"
                 name="videoPrompt"
@@ -207,8 +258,12 @@ export function NewCampaignForm({
                 rows={4}
                 value={videoPrompt}
                 onChange={(e) => setVideoPrompt(e.target.value)}
-                placeholder="Ex: Vidéo dynamique d'un appartement moderne avec vue sur mer, ambiance chaleureuse, lumière du coucher de soleil"
+                placeholder="Tapez une idée simple (ex: rénovation de sols en marbre) puis cliquez sur « Générer avec l'IA », ou décrivez le visuel vous-même."
               />
+              <p className="text-xs text-muted-foreground">
+                Tapez juste une idée, l&apos;IA rédige une description cinématographique détaillée —
+                modifiable avant de lancer la génération.
+              </p>
             </div>
 
             <div className="grid gap-2">

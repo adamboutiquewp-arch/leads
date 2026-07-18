@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   Table,
@@ -11,6 +11,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Loader2, Trash2 } from "lucide-react";
+import { deleteCampaign } from "@/app/dashboard/campaigns/actions";
 
 export type Campaign = {
   id: string;
@@ -54,6 +57,24 @@ export function CampaignsRealtimeTable({
   userId: string;
 }) {
   const [campaigns, setCampaigns] = useState<Campaign[]>(initialCampaigns);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  function handleDelete(campaign: Campaign) {
+    if (!confirm(`Supprimer définitivement la campagne « ${campaign.name} » ?`)) return;
+
+    setDeletingId(campaign.id);
+    startTransition(async () => {
+      const result = await deleteCampaign(campaign.id);
+      if (result?.error) {
+        alert(`Échec de la suppression : ${result.error}`);
+        setDeletingId(null);
+        return;
+      }
+      setCampaigns((prev) => prev.filter((c) => c.id !== campaign.id));
+      setDeletingId(null);
+    });
+  }
 
   useEffect(() => {
     const supabase = createClient();
@@ -72,6 +93,12 @@ export function CampaignsRealtimeTable({
           setCampaigns((prev) =>
             prev.map((c) => (c.id === payload.new.id ? (payload.new as Campaign) : c)),
           ),
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "campaigns", filter: `user_id=eq.${userId}` },
+        (payload) =>
+          setCampaigns((prev) => prev.filter((c) => c.id !== (payload.old as { id: string }).id)),
       )
       .subscribe();
 
@@ -103,6 +130,7 @@ export function CampaignsRealtimeTable({
             <TableHead>Nom</TableHead>
             <TableHead>Plateforme</TableHead>
             <TableHead>Statut</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -153,6 +181,22 @@ export function CampaignsRealtimeTable({
                       La génération a dépassé le délai autorisé. Réessayez.
                     </p>
                   )}
+                </TableCell>
+                <TableCell className="text-right">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    disabled={isPending && deletingId === c.id}
+                    onClick={() => handleDelete(c)}
+                    aria-label="Supprimer la campagne"
+                  >
+                    {isPending && deletingId === c.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    )}
+                  </Button>
                 </TableCell>
               </TableRow>
             );
