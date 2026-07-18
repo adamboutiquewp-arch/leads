@@ -12,8 +12,10 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { Loader2, Trash2 } from "lucide-react";
 import { deleteCampaign } from "@/app/dashboard/campaigns/actions";
+import { STEP_LABEL, progressPercentForStep, type GenerationStep } from "@/lib/generation-progress";
 
 export type Campaign = {
   id: string;
@@ -23,6 +25,7 @@ export type Campaign = {
   daily_budget_cents: number | null;
   creative_url: string | null;
   error_message: string | null;
+  generation_step: string | null;
   created_at: string;
 };
 
@@ -166,6 +169,16 @@ export function CampaignsRealtimeTable({
                   >
                     {stale ? "Échec (délai dépassé)" : (STATUS_LABEL[c.status] ?? c.status)}
                   </Badge>
+                  {c.status === "generating" && !stale && (
+                    <div className="mt-2 w-40">
+                      <Progress value={progressPercentForStep(c.generation_step, c.status)} className="h-1.5" />
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {c.generation_step && c.generation_step in STEP_LABEL
+                          ? STEP_LABEL[c.generation_step as GenerationStep]
+                          : STEP_LABEL.queued}
+                      </p>
+                    </div>
+                  )}
                   {c.status === "failed" && c.error_message && (
                     <p className="mt-1 max-w-xs truncate text-xs text-destructive" title={c.error_message}>
                       {c.error_message}

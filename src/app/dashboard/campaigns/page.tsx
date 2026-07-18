@@ -14,7 +14,9 @@ export default async function CampaignsPage() {
 
   const { data: campaigns } = await supabase
     .from("campaigns")
-    .select("id, name, platform, status, daily_budget_cents, creative_url, error_message, created_at")
+    .select(
+      "id, name, platform, status, daily_budget_cents, creative_url, error_message, generation_step, created_at",
+    )
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 

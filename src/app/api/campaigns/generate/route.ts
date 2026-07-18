@@ -79,13 +79,19 @@ export async function POST(request: NextRequest) {
   after(async () => {
     const admin = createAdminClient();
 
+    const setStep = async (step: string) => {
+      await admin.from("campaigns").update({ generation_step: step }).eq("id", campaign.id);
+    };
+
     try {
-      const videoBuffer = await generateAdVideo(videoPrompt, format, durationSeconds || 30);
+      const videoBuffer = await generateAdVideo(videoPrompt, format, durationSeconds || 30, setStep);
 
       let finalBuffer = videoBuffer;
       if (voiceoverText && voiceoverText.trim()) {
         try {
+          await setStep("generating_voiceover");
           const audioBuffer = await generateVoiceover(voiceoverText);
+          await setStep("mixing_audio");
           finalBuffer = await muxVideoWithAudio(videoBuffer, audioBuffer);
         } catch (audioError) {
           await admin
@@ -99,6 +105,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      await setStep("uploading");
       const blob = await put(`campaigns/${campaign.id}.mp4`, finalBuffer, {
         access: "public",
         contentType: "video/mp4",
@@ -113,7 +120,9 @@ export async function POST(request: NextRequest) {
       const rawMessage = error instanceof Error ? error.message : String(error);
       const message = rawMessage.includes("quota of 1 request per minute")
         ? "Une seule vidéo peut être générée par minute avec le forfait actuel. Réessayez dans une minute."
-        : rawMessage;
+        : rawMessage.includes('"status":"failed"')
+          ? "Le modèle vidéo a échoué sans raison précise (souvent lié à une description trop longue ou complexe). Réessayez avec une description plus simple et courte."
+          : rawMessage;
 
       await admin
         .from("campaigns")

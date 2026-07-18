@@ -25,10 +25,12 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+const MAX_PROMPT_LENGTH = 400; // long/complex prompts have caused outright generation failures
+
 async function generateSingleClip(prompt: string, format: CreativeFormat, seconds: number) {
   const result = await generateVideo({
     model: "bytedance/seedance-2.0",
-    prompt,
+    prompt: prompt.slice(0, MAX_PROMPT_LENGTH),
     aspectRatio: ASPECT_RATIO[format],
     duration: seconds,
     // Seedance 2.0 only accepts the quality-tier strings '720p'/'1080p' for
@@ -55,6 +57,7 @@ export async function generateAdVideo(
   prompt: string,
   format: CreativeFormat,
   totalDurationSeconds = 8,
+  onStep?: (step: string) => void | Promise<void>,
 ) {
   const clipCount = Math.max(1, Math.ceil(totalDurationSeconds / MAX_CLIP_SECONDS));
   const clipSeconds = Math.ceil(totalDurationSeconds / clipCount);
@@ -62,10 +65,14 @@ export async function generateAdVideo(
   const clips: Buffer[] = [];
   for (let i = 0; i < clipCount; i++) {
     if (i > 0) await sleep(CLIP_GAP_MS);
+    await onStep?.(i === 0 ? "generating_clip_1" : "generating_clip_2");
     clips.push(await generateSingleClip(prompt, format, clipSeconds));
   }
 
-  return clips.length === 1 ? clips[0] : concatVideoClips(clips);
+  if (clips.length === 1) return clips[0];
+
+  await onStep?.("concatenating");
+  return concatVideoClips(clips);
 }
 
 async function concatVideoClips(clips: Buffer[]) {

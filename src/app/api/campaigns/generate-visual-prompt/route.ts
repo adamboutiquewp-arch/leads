@@ -36,15 +36,21 @@ Secteur d'activité : ${sector || "non précisé"}
 Entreprise : ${companyName || "non précisée"}
 
 Contraintes :
-- En français, un seul paragraphe fluide (pas de liste, pas de titres).
-- Décris le sujet, l'action/mouvement de caméra, l'ambiance/lumière, le style visuel.
-- Doit rester crédible pour un plan de 15-30 secondes (pas de scénario trop complexe).
+- En français, 2 à 3 phrases courtes maximum (250 caractères environ), pas de liste, pas de titres.
+- Un seul plan continu et simple : un sujet, une action, un mouvement de caméra. Pas de montage
+  avant/après, pas de changements de scène ni de coupes multiples — les modèles de génération
+  vidéo ne gèrent pas bien les scénarios à plusieurs plans dans un seul clip.
+- Décris le sujet, le mouvement de caméra, l'ambiance/lumière, le style visuel, de façon concise.
 - Adapté à une publicité professionnelle et vendeuse pour ce secteur.
 - Réponds uniquement avec la description, rien d'autre.`,
       maxRetries: 1,
     });
 
-    return NextResponse.json({ text: text.trim() });
+    // Safety net regardless of what the model returns: overly long prompts
+    // have caused outright generation failures on the video model.
+    const trimmed = text.trim().slice(0, 400);
+
+    return NextResponse.json({ text: trimmed });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return NextResponse.json({ error: message }, { status: 500 });
