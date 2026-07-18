@@ -18,24 +18,104 @@ const ASPECT_RATIO: Record<CreativeFormat, `${number}:${number}`> = {
   "1080x1920": "9:16",
 };
 
-export async function generateAdVideo(prompt: string, format: CreativeFormat) {
+const MAX_CLIP_SECONDS = 15; // seedance-2.0 hard limit per generation
+const CLIP_GAP_MS = 65_000; // gateway allows 1 video request/minute below a $100 balance
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function generateSingleClip(prompt: string, format: CreativeFormat, seconds: number) {
   const result = await generateVideo({
     model: "bytedance/seedance-2.0",
     prompt,
     aspectRatio: ASPECT_RATIO[format],
-    duration: 8,
-    // The gateway allows only 1 video request/minute below a $100 balance.
-    // Retrying on failure would burn that single slot within seconds, so we
-    // fail fast instead and let the caller surface a clear error.
+    duration: seconds,
+    // Retrying on failure would burn the 1-request/minute quota within
+    // seconds, so we fail fast instead and let the caller surface a clear error.
     maxRetries: 0,
   });
 
   return Buffer.from(result.videos[0].uint8Array);
 }
 
+/**
+ * Generates an ad video up to `totalDurationSeconds` long. Splits into
+ * multiple 15s (max) clips and concatenates them when needed, spacing
+ * requests to respect the gateway's 1 video/minute quota.
+ */
+export async function generateAdVideo(
+  prompt: string,
+  format: CreativeFormat,
+  totalDurationSeconds = 8,
+) {
+  const clipCount = Math.max(1, Math.ceil(totalDurationSeconds / MAX_CLIP_SECONDS));
+  const clipSeconds = Math.ceil(totalDurationSeconds / clipCount);
+
+  const clips: Buffer[] = [];
+  for (let i = 0; i < clipCount; i++) {
+    if (i > 0) await sleep(CLIP_GAP_MS);
+    clips.push(await generateSingleClip(prompt, format, clipSeconds));
+  }
+
+  return clips.length === 1 ? clips[0] : concatVideoClips(clips);
+}
+
+async function concatVideoClips(clips: Buffer[]) {
+  if (!ffmpegPath) {
+    throw new Error("ffmpeg binary not available for this platform");
+  }
+  const ffmpegBin: string = ffmpegPath;
+
+  const id = randomUUID();
+  const clipPaths = await Promise.all(
+    clips.map(async (buf, i) => {
+      const p = join(tmpdir(), `${id}-clip${i}.mp4`);
+      await writeFile(p, buf);
+      return p;
+    }),
+  );
+  const outputPath = join(tmpdir(), `${id}-concat.mp4`);
+
+  const inputArgs = clipPaths.flatMap((p) => ["-i", p]);
+  const filter =
+    clipPaths.map((_, i) => `[${i}:v]`).join("") + `concat=n=${clipPaths.length}:v=1:a=0[outv]`;
+
+  await new Promise<void>((resolve, reject) => {
+    const proc = spawn(ffmpegBin, [
+      "-y",
+      ...inputArgs,
+      "-filter_complex", filter,
+      "-map", "[outv]",
+      "-c:v", "libx264",
+      outputPath,
+    ]);
+
+    let stderr = "";
+    proc.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    proc.on("close", (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`ffmpeg concat exited with code ${code}: ${stderr.slice(-2000)}`));
+    });
+    proc.on("error", reject);
+  });
+
+  const output = await readFile(outputPath);
+
+  await Promise.all([
+    ...clipPaths.map((p) => unlink(p).catch(() => {})),
+    unlink(outputPath).catch(() => {}),
+  ]);
+
+  return output;
+}
+
 export async function generateVoiceover(text: string) {
   const result = await generateSpeech({
-    model: defaultGateway.speechModel("openai/gpt-4o-mini-tts"),
+    model: defaultGateway.speechModel("openai/tts-1-hd"),
     text,
     voice: "alloy",
     outputFormat: "mp3",

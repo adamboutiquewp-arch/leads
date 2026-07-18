@@ -32,6 +32,7 @@ export async function POST(request: NextRequest) {
     dailyBudgetCents,
     videoPrompt,
     voiceoverText,
+    durationSeconds,
   } = body as {
     name: string;
     platform: "meta" | "google";
@@ -39,6 +40,7 @@ export async function POST(request: NextRequest) {
     dailyBudgetCents: number;
     videoPrompt: string;
     voiceoverText?: string;
+    durationSeconds?: number;
   };
 
   if (!name || !platform || !format || !videoPrompt) {
@@ -68,7 +70,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const videoBuffer = await generateAdVideo(videoPrompt, format);
+    const videoBuffer = await generateAdVideo(videoPrompt, format, durationSeconds || 8);
 
     let finalBuffer = videoBuffer;
     if (voiceoverText && voiceoverText.trim()) {
@@ -76,11 +78,12 @@ export async function POST(request: NextRequest) {
         const audioBuffer = await generateVoiceover(voiceoverText);
         finalBuffer = await muxVideoWithAudio(videoBuffer, audioBuffer);
       } catch (audioError) {
-        // La vidéo muette reste livrable même si la voix off échoue.
+        // La vidéo reste livrable (avec le son natif généré par le modèle
+        // vidéo) même si la voix off scriptée échoue.
         await supabase
           .from("campaigns")
           .update({
-            error_message: `Vidéo générée sans son (échec voix off): ${
+            error_message: `Vidéo générée sans la voix off scriptée (son d'ambiance natif conservé): ${
               audioError instanceof Error ? audioError.message : String(audioError)
             }`,
           })
