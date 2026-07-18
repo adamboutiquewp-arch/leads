@@ -5,6 +5,7 @@ export const GENERATION_STEPS = [
   "concatenating",
   "generating_voiceover",
   "mixing_audio",
+  "branding",
   "uploading",
 ] as const;
 
@@ -17,6 +18,7 @@ export const STEP_LABEL: Record<GenerationStep, string> = {
   concatenating: "Assemblage des clips",
   generating_voiceover: "Génération de la voix off",
   mixing_audio: "Mixage audio",
+  branding: "Incrustation du logo et du site web",
   uploading: "Envoi du fichier final",
 };
 
@@ -29,8 +31,9 @@ const STEP_PERCENT: Record<GenerationStep, number> = {
   generating_clip_2: 45,
   concatenating: 75,
   generating_voiceover: 80,
-  mixing_audio: 90,
-  uploading: 95,
+  mixing_audio: 88,
+  branding: 93,
+  uploading: 97,
 };
 
 export function progressPercentForStep(step: string | null, status: string) {
