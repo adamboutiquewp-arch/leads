@@ -78,8 +78,11 @@ async function concatVideoClips(clips: Buffer[]) {
   const outputPath = join(tmpdir(), `${id}-concat.mp4`);
 
   const inputArgs = clipPaths.flatMap((p) => ["-i", p]);
+  // Keep each clip's native audio (Seedance generates ambient sound) so it
+  // survives concatenation and can later be mixed with the voiceover.
   const filter =
-    clipPaths.map((_, i) => `[${i}:v]`).join("") + `concat=n=${clipPaths.length}:v=1:a=0[outv]`;
+    clipPaths.map((_, i) => `[${i}:v][${i}:a]`).join("") +
+    `concat=n=${clipPaths.length}:v=1:a=1[outv][outa]`;
 
   await new Promise<void>((resolve, reject) => {
     const proc = spawn(ffmpegBin, [
@@ -87,7 +90,9 @@ async function concatVideoClips(clips: Buffer[]) {
       ...inputArgs,
       "-filter_complex", filter,
       "-map", "[outv]",
+      "-map", "[outa]",
       "-c:v", "libx264",
+      "-c:a", "aac",
       outputPath,
     ]);
 
@@ -139,10 +144,18 @@ export async function muxVideoWithAudio(videoBuffer: Buffer, audioBuffer: Buffer
   await writeFile(audioPath, audioBuffer);
 
   await new Promise<void>((resolve, reject) => {
+    // Duck the video's native (Seedance-generated) ambient audio to
+    // background level and mix the voiceover on top, instead of replacing
+    // it outright — keeps the ambience the client liked while the scripted
+    // voiceover stays clearly audible.
     const proc = spawn(ffmpegBin, [
       "-y",
       "-i", videoPath,
       "-i", audioPath,
+      "-filter_complex",
+      "[0:a]volume=0.3[bg];[bg][1:a]amix=inputs=2:duration=first:dropout_transition=2[aout]",
+      "-map", "0:v",
+      "-map", "[aout]",
       "-c:v", "copy",
       "-c:a", "aac",
       "-shortest",
