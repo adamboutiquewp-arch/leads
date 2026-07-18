@@ -42,7 +42,7 @@ export function NewCampaignForm({
   const [error, setError] = useState<string | null>(null);
   const [platform, setPlatform] = useState("meta");
   const [format, setFormat] = useState("1080x1080");
-  const [duration, setDuration] = useState("8");
+  const [duration, setDuration] = useState("15");
   const [videoPrompt, setVideoPrompt] = useState("");
   const [voiceoverText, setVoiceoverText] = useState("");
   const [generatingScript, setGeneratingScript] = useState(false);
@@ -116,7 +116,7 @@ export function NewCampaignForm({
         return;
       }
 
-      router.push("/dashboard/campaigns");
+      router.push("/dashboard/campaigns?generating=1");
       router.refresh();
     } catch {
       setError("Impossible de contacter le serveur.");
@@ -190,8 +190,8 @@ export function NewCampaignForm({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="8">8 secondes (rapide)</SelectItem>
-                    <SelectItem value="30">30 secondes (2 clips, ~3-4 min)</SelectItem>
+                    <SelectItem value="15">15 secondes (1 clip)</SelectItem>
+                    <SelectItem value="30">30 secondes (2 clips assemblés)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -247,12 +247,13 @@ export function NewCampaignForm({
 
             <Button type="submit" disabled={loading} className="gap-2">
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-              {loading
-                ? duration === "30"
-                  ? "Génération en cours (jusqu'à 4-5 min pour 30s)..."
-                  : "Génération en cours (jusqu'à 2-3 min)..."
-                : "Générer la campagne"}
+              {loading ? "Lancement de la génération..." : "Générer la campagne"}
             </Button>
+            <p className="text-xs text-muted-foreground">
+              La génération se fait en arrière-plan ({duration === "30" ? "3-5 min" : "1-2 min"}
+              ) — vous serez redirigé vers la liste des campagnes, son statut s&apos;y mettra à
+              jour automatiquement.
+            </p>
           </form>
         </CardContent>
       </Card>

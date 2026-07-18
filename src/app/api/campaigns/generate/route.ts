@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import { put } from "@vercel/blob";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   generateAdVideo,
   generateVoiceover,
@@ -69,51 +71,56 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  try {
-    const videoBuffer = await generateAdVideo(videoPrompt, format, durationSeconds || 8);
+  // Generation can take longer than a client is willing to wait on a single
+  // fetch (and can approach the platform's function duration cap). Respond
+  // right away with the campaign in "generating" state, and keep working in
+  // the background via `after()` — the client polls/subscribes for the
+  // status change instead of holding the connection open.
+  after(async () => {
+    const admin = createAdminClient();
 
-    let finalBuffer = videoBuffer;
-    if (voiceoverText && voiceoverText.trim()) {
-      try {
-        const audioBuffer = await generateVoiceover(voiceoverText);
-        finalBuffer = await muxVideoWithAudio(videoBuffer, audioBuffer);
-      } catch (audioError) {
-        // La vidéo reste livrable (avec le son natif généré par le modèle
-        // vidéo) même si la voix off scriptée échoue.
-        await supabase
-          .from("campaigns")
-          .update({
-            error_message: `Vidéo générée sans la voix off scriptée (son d'ambiance natif conservé): ${
-              audioError instanceof Error ? audioError.message : String(audioError)
-            }`,
-          })
-          .eq("id", campaign.id);
+    try {
+      const videoBuffer = await generateAdVideo(videoPrompt, format, durationSeconds || 30);
+
+      let finalBuffer = videoBuffer;
+      if (voiceoverText && voiceoverText.trim()) {
+        try {
+          const audioBuffer = await generateVoiceover(voiceoverText);
+          finalBuffer = await muxVideoWithAudio(videoBuffer, audioBuffer);
+        } catch (audioError) {
+          await admin
+            .from("campaigns")
+            .update({
+              error_message: `Vidéo générée sans la voix off scriptée (son d'ambiance natif conservé): ${
+                audioError instanceof Error ? audioError.message : String(audioError)
+              }`,
+            })
+            .eq("id", campaign.id);
+        }
       }
+
+      const blob = await put(`campaigns/${campaign.id}.mp4`, finalBuffer, {
+        access: "public",
+        contentType: "video/mp4",
+        addRandomSuffix: false,
+      });
+
+      await admin
+        .from("campaigns")
+        .update({ status: "ready", creative_url: blob.url })
+        .eq("id", campaign.id);
+    } catch (error) {
+      const rawMessage = error instanceof Error ? error.message : String(error);
+      const message = rawMessage.includes("quota of 1 request per minute")
+        ? "Une seule vidéo peut être générée par minute avec le forfait actuel. Réessayez dans une minute."
+        : rawMessage;
+
+      await admin
+        .from("campaigns")
+        .update({ status: "failed", error_message: message })
+        .eq("id", campaign.id);
     }
+  });
 
-    const blob = await put(`campaigns/${campaign.id}.mp4`, finalBuffer, {
-      access: "public",
-      contentType: "video/mp4",
-      addRandomSuffix: false,
-    });
-
-    await supabase
-      .from("campaigns")
-      .update({ status: "ready", creative_url: blob.url })
-      .eq("id", campaign.id);
-
-    return NextResponse.json({ success: true, campaignId: campaign.id, url: blob.url });
-  } catch (error) {
-    const rawMessage = error instanceof Error ? error.message : String(error);
-    const message = rawMessage.includes("quota of 1 request per minute")
-      ? "Une seule vidéo peut être générée par minute avec le forfait actuel. Réessayez dans une minute."
-      : rawMessage;
-
-    await supabase
-      .from("campaigns")
-      .update({ status: "failed", error_message: message })
-      .eq("id", campaign.id);
-
-    return NextResponse.json({ error: message, campaignId: campaign.id }, { status: 500 });
-  }
+  return NextResponse.json({ success: true, campaignId: campaign.id, status: "generating" });
 }
