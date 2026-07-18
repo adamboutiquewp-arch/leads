@@ -1,11 +1,8 @@
 export const GENERATION_STEPS = [
   "queued",
   "generating_clip_1",
-  "generating_clip_2",
-  "concatenating",
   "generating_voiceover",
   "mixing_audio",
-  "branding",
   "uploading",
 ] as const;
 
@@ -13,12 +10,9 @@ export type GenerationStep = (typeof GENERATION_STEPS)[number];
 
 export const STEP_LABEL: Record<GenerationStep, string> = {
   queued: "En attente",
-  generating_clip_1: "Génération du visuel (1/2)",
-  generating_clip_2: "Génération du visuel (2/2)",
-  concatenating: "Assemblage des clips",
+  generating_clip_1: "Génération du visuel",
   generating_voiceover: "Génération de la voix off",
   mixing_audio: "Mixage audio",
-  branding: "Incrustation du logo et du site web",
   uploading: "Envoi du fichier final",
 };
 
@@ -27,13 +21,10 @@ export const STEP_LABEL: Record<GenerationStep, string> = {
 // a fabricated smooth animation.
 const STEP_PERCENT: Record<GenerationStep, number> = {
   queued: 2,
-  generating_clip_1: 10,
-  generating_clip_2: 45,
-  concatenating: 75,
-  generating_voiceover: 80,
+  generating_clip_1: 15,
+  generating_voiceover: 75,
   mixing_audio: 88,
-  branding: 93,
-  uploading: 97,
+  uploading: 95,
 };
 
 export function progressPercentForStep(step: string | null, status: string) {

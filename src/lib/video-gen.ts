@@ -18,7 +18,6 @@ const ASPECT_RATIO: Record<CreativeFormat, `${number}:${number}`> = {
   "1080x1920": "9:16",
 };
 
-const MAX_CLIP_SECONDS = 15; // seedance-2.0 hard limit per generation
 const CLIP_GAP_MS = 65_000; // gateway allows 1 video request/minute below a $100 balance
 
 function sleep(ms: number) {
@@ -71,87 +70,16 @@ async function generateSingleClip(prompt: string, format: CreativeFormat, second
 }
 
 /**
- * Generates an ad video up to `totalDurationSeconds` long. Splits into
- * multiple 15s (max) clips and concatenates them when needed, spacing
- * requests to respect the gateway's 1 video/minute quota.
+ * Generates a 15s ad video (Seedance 2.0's per-clip maximum).
  */
 export async function generateAdVideo(
   prompt: string,
   format: CreativeFormat,
-  totalDurationSeconds = 8,
+  durationSeconds = 15,
   onStep?: (step: string) => void | Promise<void>,
 ) {
-  const clipCount = Math.max(1, Math.ceil(totalDurationSeconds / MAX_CLIP_SECONDS));
-  const clipSeconds = Math.ceil(totalDurationSeconds / clipCount);
-
-  const clips: Buffer[] = [];
-  for (let i = 0; i < clipCount; i++) {
-    if (i > 0) await sleep(CLIP_GAP_MS);
-    await onStep?.(i === 0 ? "generating_clip_1" : "generating_clip_2");
-    clips.push(await generateSingleClip(prompt, format, clipSeconds));
-  }
-
-  if (clips.length === 1) return clips[0];
-
-  await onStep?.("concatenating");
-  return concatVideoClips(clips);
-}
-
-async function concatVideoClips(clips: Buffer[]) {
-  if (!ffmpegPath) {
-    throw new Error("ffmpeg binary not available for this platform");
-  }
-  const ffmpegBin: string = ffmpegPath;
-
-  const id = randomUUID();
-  const clipPaths = await Promise.all(
-    clips.map(async (buf, i) => {
-      const p = join(tmpdir(), `${id}-clip${i}.mp4`);
-      await writeFile(p, buf);
-      return p;
-    }),
-  );
-  const outputPath = join(tmpdir(), `${id}-concat.mp4`);
-
-  const inputArgs = clipPaths.flatMap((p) => ["-i", p]);
-  // Keep each clip's native audio (Seedance generates ambient sound) so it
-  // survives concatenation and can later be mixed with the voiceover.
-  const filter =
-    clipPaths.map((_, i) => `[${i}:v][${i}:a]`).join("") +
-    `concat=n=${clipPaths.length}:v=1:a=1[outv][outa]`;
-
-  await new Promise<void>((resolve, reject) => {
-    const proc = spawn(ffmpegBin, [
-      "-y",
-      ...inputArgs,
-      "-filter_complex", filter,
-      "-map", "[outv]",
-      "-map", "[outa]",
-      "-c:v", "libx264",
-      "-c:a", "aac",
-      outputPath,
-    ]);
-
-    let stderr = "";
-    proc.stderr.on("data", (chunk) => {
-      stderr += chunk.toString();
-    });
-
-    proc.on("close", (code) => {
-      if (code === 0) resolve();
-      else reject(new Error(`ffmpeg concat exited with code ${code}: ${stderr.slice(-2000)}`));
-    });
-    proc.on("error", reject);
-  });
-
-  const output = await readFile(outputPath);
-
-  await Promise.all([
-    ...clipPaths.map((p) => unlink(p).catch(() => {})),
-    unlink(outputPath).catch(() => {}),
-  ]);
-
-  return output;
+  await onStep?.("generating_clip_1");
+  return generateSingleClip(prompt, format, Math.min(durationSeconds, 15));
 }
 
 export async function generateVoiceover(text: string) {

@@ -1,9 +1,5 @@
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {
-  outputFileTracingIncludes: {
-    "/api/campaigns/generate": ["./src/assets/fonts/**"],
-  },
-};
+const nextConfig: NextConfig = {};
 
 export default nextConfig;

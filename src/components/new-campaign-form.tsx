@@ -42,7 +42,7 @@ export function NewCampaignForm({
   const [error, setError] = useState<string | null>(null);
   const [platform, setPlatform] = useState("meta");
   const [format, setFormat] = useState("1080x1080");
-  const [duration, setDuration] = useState("15");
+  const duration = "15";
   const [videoPrompt, setVideoPrompt] = useState("");
   const [voiceoverText, setVoiceoverText] = useState("");
   const [generatingScript, setGeneratingScript] = useState(false);
@@ -211,24 +211,11 @@ export function NewCampaignForm({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="dailyBudget">Budget quotidien (€)</Label>
-                <Input id="dailyBudget" name="dailyBudget" type="number" min={0} step={1} disabled={loading} />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="duration">Durée de la vidéo</Label>
-                <Select value={duration} onValueChange={(v) => v && setDuration(v)} disabled={loading}>
-                  <SelectTrigger id="duration">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="15">15 secondes (1 clip)</SelectItem>
-                    <SelectItem value="30">30 secondes (2 clips assemblés)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="grid gap-2">
+              <Label htmlFor="dailyBudget">Budget quotidien (€)</Label>
+              <Input id="dailyBudget" name="dailyBudget" type="number" min={0} step={1} disabled={loading} />
             </div>
+            <p className="-mt-2 text-xs text-muted-foreground">Vidéo de 15 secondes.</p>
 
             <div className="grid gap-2">
               <div className="flex items-center justify-between">
@@ -305,9 +292,8 @@ export function NewCampaignForm({
               {loading ? "Lancement de la génération..." : "Générer la campagne"}
             </Button>
             <p className="text-xs text-muted-foreground">
-              La génération se fait en arrière-plan ({duration === "30" ? "3-5 min" : "1-2 min"}
-              ) — vous serez redirigé vers la liste des campagnes, son statut s&apos;y mettra à
-              jour automatiquement.
+              La génération se fait en arrière-plan (1-2 min) — vous serez redirigé vers la liste
+              des campagnes, son statut s&apos;y mettra à jour automatiquement.
             </p>
           </form>
         </CardContent>

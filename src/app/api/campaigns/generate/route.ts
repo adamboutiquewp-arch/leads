@@ -9,7 +9,6 @@ import {
   muxVideoWithAudio,
   type CreativeFormat,
 } from "@/lib/video-gen";
-import { applyBranding } from "@/lib/video-branding";
 
 export const maxDuration = 300;
 
@@ -85,7 +84,7 @@ export async function POST(request: NextRequest) {
     };
 
     try {
-      const videoBuffer = await generateAdVideo(videoPrompt, format, durationSeconds || 30, setStep);
+      const videoBuffer = await generateAdVideo(videoPrompt, format, durationSeconds || 15, setStep);
 
       let finalBuffer = videoBuffer;
       if (voiceoverText && voiceoverText.trim()) {
@@ -100,31 +99,6 @@ export async function POST(request: NextRequest) {
             .update({
               error_message: `Vidéo générée sans la voix off scriptée (son d'ambiance natif conservé): ${
                 audioError instanceof Error ? audioError.message : String(audioError)
-              }`,
-            })
-            .eq("id", campaign.id);
-        }
-      }
-
-      const { data: profile } = await admin
-        .from("profiles")
-        .select("logo_url, website_url")
-        .eq("id", user.id)
-        .single();
-
-      if (profile?.logo_url || profile?.website_url) {
-        try {
-          await setStep("branding");
-          finalBuffer = await applyBranding(finalBuffer, {
-            logoUrl: profile.logo_url,
-            websiteUrl: profile.website_url,
-          });
-        } catch (brandingError) {
-          await admin
-            .from("campaigns")
-            .update({
-              error_message: `Vidéo générée sans logo/site web (échec de l'incrustation): ${
-                brandingError instanceof Error ? brandingError.message : String(brandingError)
               }`,
             })
             .eq("id", campaign.id);
